@@ -1,32 +1,41 @@
 const express = require('express');
 const router = express.Router();
-const Chef = require('../models/chef');
 const jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 const config = require('../bin/config'); // get our config file
+
+const Chef = require('../models/chef');
+const Menu = require('../models/menu');
 
 router.post('/', function(req, res) {
     // create a sample chef
     var chef = new Chef({
         name: req.body.name,
     	email: req.body.email,
-    	profilePictureURL : req.body.profile_picture_url,
-    	fbId : req.body.fb_id,
+    	profilePictureURL : req.body.profilePictureURL,
+    	fbId : req.body.fbId,
+    	fbAccessToken: req.body.fbAccessToken,
     	cellphone: req.body.cellphone,
-    	address: req.body.address,
-    	neighbourhood: req.body.neighbourhood,
-    	lat: req.body.lat,
-    	long: req.body.long,
+    	address: {
+    		lat : req.body.lat,
+    		long : req.body.long,
+            neighbourhood: req.body.neighbourhood,
+            longName : req.body.address_long,
+    		shortName : req.body.address_short
+    	},
+    	attendingSchedule :{
+    		hours : req.body.attendingHours
+    	},
     	bio: req.body.bio,
-
     	idCardNumber: req.body.idCardNumber
     });
 
     // save the sample user
     chef.save(function(err) {
+        console.log(err);
         if (err) throw err;
 
-        console.log('User saved successfully');
-        var token = jwt.sign(user, config.secret, {
+        console.log('Chef saved successfully');
+        var token = jwt.sign(chef, config.secret, {
             expiresIn: 1440 // expires in 24 hours
         });
 
@@ -119,13 +128,39 @@ router.get('/me', function(req, res, next) {
 });
 
 /* GET current_options. */
-router.get('/current_options', function(req, res, next) {
-  res.send("menu's array");
-});
+router.post('/new_menu', (req, res, next) => {
 
-/* GET make_reservations. */
-router.get('/make_reservations', function(req, res, next) {
-  res.send("menu's array");
-});
+    Chef.findOne({
+        _id: req.decoded._doc._id
+    }, function(err, chef) {
+        if (chef) {
+            var menu = new Menu({
+                name: req.body.name,
+            	menuPictureURL: req.body.menuPictureURL,
+            	description: req.body.description,
+            	attendingSchedule :{
+            		hour : req.body.hours,
+                    reservations : req.body.reservations,
+                    date : req.body.dates,
+            	},
+            	price : req.body.price,
+                chef: chef._id
+            });
 
+            // save the sample user
+            menu.save( err => {
+                console.log(err);
+                if (err) throw err;
+
+                console.log('Menu saved successfully');
+                res.send(menu);
+            });
+        } else {
+            res.json({
+                error:1,
+                msg: "That user it's not a chef"
+            })
+        }
+    });
+});
 module.exports = router;
